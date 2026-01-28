@@ -2,7 +2,7 @@ import time
 import requests
 
 BOT_TOKEN = "8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs"
-ADMIN_ID = 123456789
+ADMIN_ID = 1191654019
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 
@@ -15,29 +15,34 @@ def get_updates(offset=None):
 
 
 def send_message(chat_id, text, keyboard=None):
-    data = {
+    payload = {
         "chat_id": chat_id,
-        "text": text
+        "text": text,
+        "parse_mode": "Markdown"
     }
-    if keyboard:
-        data["reply_markup"] = keyboard
 
-    requests.post(f"{BASE_URL}/sendMessage", json=data)
+    if keyboard:
+        payload["reply_markup"] = keyboard
+
+    requests.post(f"{BASE_URL}/sendMessage", json=payload)
 
 
 def main_menu():
     return {
         "keyboard": [
-            ["📝 Новое обращение"],
-            ["ℹ️ О боте"]
+            ["📝 Нове звернення"],
+            ["ℹ️ Про бота"]
         ],
-        "resize_keyboard": True
+        "resize_keyboard": True,
+        "one_time_keyboard": False
     }
 
 
 def cancel_menu():
     return {
-        "keyboard": [["❌ Отмена"]],
+        "keyboard": [
+            ["❌ Відміна"]
+        ],
         "resize_keyboard": True
     }
 
@@ -46,7 +51,7 @@ def main():
     offset = None
     waiting_for_text = set()
 
-    print("🤖 Bot started...")
+    print("🤖 Bot started")
 
     while True:
         updates = get_updates(offset)
@@ -65,67 +70,65 @@ def main():
                 continue
 
             # START
-            if text.lower() in ["/start", "start"]:
+            if text in ["/start", "start"]:
                 send_message(
                     chat_id,
                     "👋 Вітаю!\n"
-                    "Це анонімний бот шкільного омбудсмена.\n\n"
+                    "Це анонімний бот шкільного омбудсмена.\n"
                     "Оберіть дію з меню 👇",
                     main_menu()
                 )
                 continue
 
             # ABOUT
-            if text == "ℹ️ О боте":
+            if text == "ℹ️ Про бота":
                 send_message(
                     chat_id,
-                    "ℹ️ **Про бота**\n\n"
-                    "Через цього бота ви можете анонімно повідомити "
-                    "про конфлікт, булінг або іншу проблему у школі.\n\n"
-                    "🔒 Конфіденційність гарантовано.",
+                    "ℹ️ Про бота\n\n"
+                    "Тут можна анонімно повідомити про проблему у школі.",
                     main_menu()
                 )
                 continue
 
             # NEW REQUEST
-            if text == "📝 Новое обращение":
+            if text == "📝 Нове звернення":
                 waiting_for_text.add(chat_id)
                 send_message(
                     chat_id,
                     "✍️ Опишіть ситуацію одним повідомленням.\n\n"
-                    "Натисніть ❌ Отмена, щоб скасувати.",
+                    "Натисніть ❌ Відміна, щоб скасувати.",
                     cancel_menu()
                 )
                 continue
 
             # CANCEL
-            if text == "❌ Отмена":
+            if text == "❌ Відміна":
                 waiting_for_text.discard(chat_id)
                 send_message(
                     chat_id,
-                    "❌ Скасовано.\nОберіть дію з меню 👇",
+                    "❌ Скасовано.\n\nОберіть дію з меню 👇",
                     main_menu()
                 )
                 continue
 
-            # USER MESSAGE
+            # USER TEXT
             if chat_id in waiting_for_text:
-                admin_text = f"📩 Нове анонімне звернення:\n\n{text}"
-                send_message(ADMIN_ID, admin_text)
-
+                send_message(
+                    ADMIN_ID,
+                    f"📩 Нове анонімне звернення:\n\n{text}"
+                )
                 send_message(
                     chat_id,
-                    "✅ Ваше звернення передано омбудсмену.\nДякуємо!",
+                    "✅ Ваше звернення передано омбудсмену.",
                     main_menu()
                 )
-
                 waiting_for_text.discard(chat_id)
                 continue
 
-            # IF RANDOM TEXT
+            # FALLBACK
             send_message(
                 chat_id,
-                "ℹ️ Будь ласка, скористайтесь меню 👇",
+                "ℹ️ Скористайтесь кнопками меню 👇",
                 main_menu()
             )
 

@@ -1,68 +1,136 @@
 import time
-import string
 import requests
-import random
 
-bot_key = '8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs'
-
-url = f"https://api.telegram.org/bot{bot_key}/"  # don't forget to change the token!
-
-
-def last_update(request_url):
-    response = requests.get(request_url + 'getUpdates')
-    response = response.json()
-    results = response['result']
-    if results:
-        return results[-1]
-    return None
+BOT_TOKEN = "8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs"
+ADMIN_ID = 123456789
+BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 
-def get_chat_id(update):
-    return update['message']['chat']['id']
+def get_updates(offset=None):
+    params = {"timeout": 30}
+    if offset:
+        params["offset"] = offset
+    r = requests.get(f"{BASE_URL}/getUpdates", params=params)
+    return r.json()["result"]
 
 
-def get_message_text(update):
-    return update['message']['text']
+def send_message(chat_id, text, keyboard=None):
+    data = {
+        "chat_id": chat_id,
+        "text": text
+    }
+    if keyboard:
+        data["reply_markup"] = keyboard
+
+    requests.post(f"{BASE_URL}/sendMessage", json=data)
 
 
-def send_message(chat_id, text):
-    params = {'chat_id': chat_id, 'text': text}
-    response = requests.post(url + 'sendMessage', data=params)
-    return response
+def main_menu():
+    return {
+        "keyboard": [
+            ["📝 Новое обращение"],
+            ["ℹ️ О боте"]
+        ],
+        "resize_keyboard": True
+    }
+
+
+def cancel_menu():
+    return {
+        "keyboard": [["❌ Отмена"]],
+        "resize_keyboard": True
+    }
 
 
 def main():
-    update = last_update(url)
-    if update:
-        update_id = update['update_id']
-    else:
-        update_id = 0
+    offset = None
+    waiting_for_text = set()
+
+    print("🤖 Bot started...")
 
     while True:
-        time.sleep(2)
-        update = last_update(url)
-        if not update:
-            continue
+        updates = get_updates(offset)
 
-        if update_id == update['update_id']:
-            text = get_message_text(update)
-            chat = get_chat_id(update)
+        for update in updates:
+            offset = update["update_id"] + 1
 
-            # Команди
-            if text.lower() in ['start', 'привіт', 'hi', 'hello']:
-                send_message(chat, "👋 Вітаю! Це анонімний бот шкільного омбудсмена.\n"
-                                   "Напишіть своє звернення, і воно буде передано омбудсмену.\n"
-                                   "Ваші дані залишаються конфіденційними.")
-            else:
-                # Надсилання повідомлення омбудсмену
-                forwarded_text = f"📩 Нове анонімне звернення:\n\n{text}"
-                send_message(ADMIN_ID, forwarded_text)
-                send_message(chat, "✅ Ваше повідомлення надіслано омбудсмену. Дякуємо!")
+            if "message" not in update:
+                continue
 
-            update_id += 1
-            
-# print(__name__)
-if __name__ == '__main__':
+            msg = update["message"]
+            chat_id = msg["chat"]["id"]
+            text = msg.get("text")
+
+            if not text:
+                continue
+
+            # START
+            if text.lower() in ["/start", "start"]:
+                send_message(
+                    chat_id,
+                    "👋 Вітаю!\n"
+                    "Це анонімний бот шкільного омбудсмена.\n\n"
+                    "Оберіть дію з меню 👇",
+                    main_menu()
+                )
+                continue
+
+            # ABOUT
+            if text == "ℹ️ О боте":
+                send_message(
+                    chat_id,
+                    "ℹ️ **Про бота**\n\n"
+                    "Через цього бота ви можете анонімно повідомити "
+                    "про конфлікт, булінг або іншу проблему у школі.\n\n"
+                    "🔒 Конфіденційність гарантовано.",
+                    main_menu()
+                )
+                continue
+
+            # NEW REQUEST
+            if text == "📝 Новое обращение":
+                waiting_for_text.add(chat_id)
+                send_message(
+                    chat_id,
+                    "✍️ Опишіть ситуацію одним повідомленням.\n\n"
+                    "Натисніть ❌ Отмена, щоб скасувати.",
+                    cancel_menu()
+                )
+                continue
+
+            # CANCEL
+            if text == "❌ Отмена":
+                waiting_for_text.discard(chat_id)
+                send_message(
+                    chat_id,
+                    "❌ Скасовано.\nОберіть дію з меню 👇",
+                    main_menu()
+                )
+                continue
+
+            # USER MESSAGE
+            if chat_id in waiting_for_text:
+                admin_text = f"📩 Нове анонімне звернення:\n\n{text}"
+                send_message(ADMIN_ID, admin_text)
+
+                send_message(
+                    chat_id,
+                    "✅ Ваше звернення передано омбудсмену.\nДякуємо!",
+                    main_menu()
+                )
+
+                waiting_for_text.discard(chat_id)
+                continue
+
+            # IF RANDOM TEXT
+            send_message(
+                chat_id,
+                "ℹ️ Будь ласка, скористайтесь меню 👇",
+                main_menu()
+            )
+
+        time.sleep(1)
+
+
+if __name__ == "__main__":
     main()
-# print(__name__)
-# print('HELLO') #При подключении файла как бибилиотеки import bot, в другой .py файл проекта, этот код будет запускатся при включении того, другого файла

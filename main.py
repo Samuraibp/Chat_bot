@@ -1,17 +1,13 @@
-import time
+from flask import Flask, request
+import os
 import requests
 
-BOT_TOKEN = "8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs"
+BOT_TOKEN = os.getenv("8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs")
 ADMIN_ID = 1191654019
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-
-def get_updates(offset=None):
-    params = {"timeout": 30}
-    if offset:
-        params["offset"] = offset
-    r = requests.get(f"{BASE_URL}/getUpdates", params=params)
-    return r.json()["result"]
+app = Flask(__name__)
+waiting_for_text = set()
 
 
 def send_message(chat_id, text, keyboard=None):
@@ -20,10 +16,8 @@ def send_message(chat_id, text, keyboard=None):
         "text": text,
         "parse_mode": "Markdown"
     }
-
     if keyboard:
         payload["reply_markup"] = keyboard
-
     requests.post(f"{BASE_URL}/sendMessage", json=payload)
 
 
@@ -47,93 +41,52 @@ def cancel_menu():
     }
 
 
-def main():
-    offset = None
-    waiting_for_text = set()
+@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook():
+    update = request.get_json(force=True)
 
-    print("🤖 Bot started")
+    if "message" not in update:
+        return "ok"
 
-    while True:
-        updates = get_updates(offset)
+    msg = update["message"]
+    chat_id = msg["chat"]["id"]
+    text = msg.get("text")
+    if not text:
+        return "ok"
 
-        for update in updates:
-            offset = update["update_id"] + 1
+    # START
+    if text in ["/start", "start"]:
+        send_message(chat_id, "👋 Вітаю!\nЦе анонімний бот шкільного омбудсмена.\nОберіть дію з меню 👇", main_menu())
+        return "ok"
 
-            if "message" not in update:
-                continue
+    # ABOUT
+    if text == "ℹ️ Про бота":
+        send_message(chat_id, "ℹ️ Про бота\n\nТут можна анонімно повідомити про проблему у школі.", main_menu())
+        return "ok"
 
-            msg = update["message"]
-            chat_id = msg["chat"]["id"]
-            text = msg.get("text")
+    # NEW REQUEST
+    if text == "📝 Нове звернення":
+        waiting_for_text.add(chat_id)
+        send_message(chat_id, "✍️ Опишіть ситуацію одним повідомленням.\n\nНатисніть ❌ Відміна, щоб скасувати.", cancel_menu())
+        return "ok"
 
-            if not text:
-                continue
+    # CANCEL
+    if text == "❌ Відміна":
+        waiting_for_text.discard(chat_id)
+        send_message(chat_id, "❌ Скасовано.\n\nОберіть дію з меню 👇", main_menu())
+        return "ok"
 
-            # START
-            if text in ["/start", "start"]:
-                send_message(
-                    chat_id,
-                    "👋 Вітаю!\n"
-                    "Це анонімний бот шкільного омбудсмена.\n"
-                    "Оберіть дію з меню 👇",
-                    main_menu()
-                )
-                continue
+    # USER TEXT
+    if chat_id in waiting_for_text:
+        send_message(ADMIN_ID, f"📩 Нове анонімне звернення:\n\n{text}")
+        send_message(chat_id, "✅ Ваше звернення передано омбудсмену.", main_menu())
+        waiting_for_text.discard(chat_id)
+        return "ok"
 
-            # ABOUT
-            if text == "ℹ️ Про бота":
-                send_message(
-                    chat_id,
-                    "ℹ️ Про бота\n\n"
-                    "Тут можна анонімно повідомити про проблему у школі.",
-                    main_menu()
-                )
-                continue
-
-            # NEW REQUEST
-            if text == "📝 Нове звернення":
-                waiting_for_text.add(chat_id)
-                send_message(
-                    chat_id,
-                    "✍️ Опишіть ситуацію одним повідомленням.\n\n"
-                    "Натисніть ❌ Відміна, щоб скасувати.",
-                    cancel_menu()
-                )
-                continue
-
-            # CANCEL
-            if text == "❌ Відміна":
-                waiting_for_text.discard(chat_id)
-                send_message(
-                    chat_id,
-                    "❌ Скасовано.\n\nОберіть дію з меню 👇",
-                    main_menu()
-                )
-                continue
-
-            # USER TEXT
-            if chat_id in waiting_for_text:
-                send_message(
-                    ADMIN_ID,
-                    f"📩 Нове анонімне звернення:\n\n{text}"
-                )
-                send_message(
-                    chat_id,
-                    "✅ Ваше звернення передано омбудсмену.",
-                    main_menu()
-                )
-                waiting_for_text.discard(chat_id)
-                continue
-
-            # FALLBACK
-            send_message(
-                chat_id,
-                "ℹ️ Скористайтесь кнопками меню 👇",
-                main_menu()
-            )
-
-        time.sleep(1)
+    # FALLBACK
+    send_message(chat_id, "ℹ️ Скористайтесь кнопками меню 👇", main_menu())
+    return "ok"
 
 
 if __name__ == "__main__":
-    main()
+    app.run()

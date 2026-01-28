@@ -2,7 +2,7 @@ from flask import Flask, request
 import os
 import requests
 
-BOT_TOKEN = os.getenv("8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs")
+BOT_TOKEN = "8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs"
 ADMIN_ID = 1191654019
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
@@ -88,5 +88,5 @@ def webhook():
     return "ok"
 
 
-if __name__ == "__main__":
-    app.run()
+# if __name__ == "__main__":
+#     app.run()

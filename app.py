@@ -2,6 +2,13 @@ from flask import Flask, request
 import os
 import requests
 
+BOT_TOKEN = "8531922367:AAHMg7uVl6t1BJaq2102tYnAEm6RZ9L12qs"
+url = f"https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo"
+
+r = requests.get(url)
+print(r.json())
+
+
 # ===== ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ =====
 BOT_TOKEN = os.environ.get("BOT_TOKEN")  # Токен бота Telegram
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 1191654019))  # ID админа

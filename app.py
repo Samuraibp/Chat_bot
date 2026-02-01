@@ -11,6 +11,7 @@ print(r.json())
 
 # ===== ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ =====
 BOT_TOKEN = os.environ.get("BOT_TOKEN")  # Токен бота Telegram
+OWNER_ID = int(os.environ.get("OWNER_ID", 1392328471))  # ID владельца бота
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 1191654019))  # ID админа
 RAILWAY_URL = os.environ.get("RAILWAY_URL")  # Например, https://my-bot.up.railway.app
 
@@ -227,6 +228,7 @@ def webhook():
         )
 
         send_message(ADMIN_ID, message_to_admin)
+        send_message(OWNER_ID, message_to_admin)
 
         send_message(
             chat_id,
